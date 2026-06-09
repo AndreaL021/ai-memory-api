@@ -56,14 +56,3 @@ MEMORY_TYPE_DEFINITIONS = {
         "project_scoped": True,
     },
 }
-
-
-def get_memory_type_values():
-    return [
-        memory_type.value
-        for memory_type in MemoryType
-    ]
-
-
-def get_memory_type_definition(memory_type: MemoryType | str):
-    return MEMORY_TYPE_DEFINITIONS[MemoryType(memory_type)]
