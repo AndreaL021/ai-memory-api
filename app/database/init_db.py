@@ -3,7 +3,10 @@ from app.models import (
     EventModel,
     MemoryAuditLogModel,
     MemoryModel,
+    MemoryObservationModel,
+    MemoryUsageModel,
     ProjectModel,
+    SecretReferenceModel,
     UserModel,
 )
 
