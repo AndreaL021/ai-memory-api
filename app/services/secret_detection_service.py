@@ -55,7 +55,7 @@ DETECT_SECRETS_PLUGINS = [
 
 
 def detect_secrets(text: str | None):
-    """Find secret-like spans in text using detect-secrets plus local rules."""
+    # Find secret-like spans in text using detect-secrets plus local rules.
     if not text:
         return []
 
@@ -77,7 +77,7 @@ def detect_secrets(text: str | None):
 
 
 def detect_secrets_with_library(text: str):
-    """Run detect-secrets on chat/runtime text and return character spans."""
+    # Run detect-secrets on chat/runtime text and return character spans.
     matches = []
     line_start = 0
 
@@ -112,7 +112,7 @@ def detect_secrets_with_library(text: str):
 
 
 def normalize_secret_type(secret_type: str):
-    """Convert detect-secrets detector names into stable snake_case labels."""
+    # Convert detect-secrets detector names into stable snake_case labels.
     return re.sub(
         r"[^a-z0-9]+",
         "_",
@@ -121,7 +121,7 @@ def normalize_secret_type(secret_type: str):
 
 
 def get_secret_value_span(secret_type: str, match: re.Match):
-    """Return only the sensitive value span when a rule matches an assignment."""
+    # Return only the sensitive value span when a rule matches an assignment.
     if secret_type == "generic_api_key_assignment" and match.lastindex and match.lastindex >= 2:
         return match.start(2), match.end(2)
 

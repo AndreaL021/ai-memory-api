@@ -8,7 +8,7 @@ from app.services.security_service import validate_normal_memory_content
 
 
 def create_memory(db: Session, payload: MemoryCreateSchema):
-    """Create a normal memory record, or reject it if it contains raw secret material."""
+    # Create a normal memory record, or reject it if it contains raw secret material.
     security_result = validate_normal_memory_content(
         content=payload.content,
         memory_type=payload.memory_type.value,
