@@ -13,6 +13,7 @@ def create_memory_audit_log(
     new_value: dict | None = None,
     reason: str | None = None,
 ):
+    # Record a durable audit entry for a memory-related action.
     audit_log = MemoryAuditLogModel(
         id_memory=id_memory,
         id_user=id_user,
@@ -39,6 +40,7 @@ def create_memory_observation(
     decision: str | None = None,
     metrics: dict | None = None,
 ):
+    # Record why the memory system made or observed a memory decision.
     observation = MemoryObservationModel(
         id_memory=id_memory,
         id_user=id_user,
@@ -63,6 +65,7 @@ def log_secret_access(
     reason: str,
     action: str = "secret_access",
 ):
+    # Record that a secret reference was accessed without exposing its raw value.
     return create_memory_audit_log(
         db=db,
         id_user=id_user,

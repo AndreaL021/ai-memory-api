@@ -10,6 +10,7 @@ def classify_memory_security(
     memory_type: str | None = None,
     contains_sensitive_data: bool = False,
 ):
+    # Choose the security level for memory content before it is stored.
     secret_matches = detect_secrets(content)
 
     return classify_security_level(
@@ -20,6 +21,7 @@ def classify_memory_security(
 
 
 def validate_normal_memory_content(content: str, memory_type: str | None = None):
+    # Validate and redact content before it can be stored as normal memory.
     security_level = classify_memory_security(
         content=content,
         memory_type=memory_type,

@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 
+from app.api.events import router as events_router
+from app.api.memories import router as memories_router
 from app.database.init_db import init_database
 
 
@@ -11,6 +13,10 @@ app = FastAPI(
 @app.on_event("startup")
 def startup():
     init_database()
+
+
+app.include_router(events_router)
+app.include_router(memories_router)
 
 
 @app.get("/")

@@ -55,6 +55,7 @@ DETECT_SECRETS_PLUGINS = [
 
 
 def detect_secrets(text: str | None):
+    """Find secret-like spans in text using detect-secrets plus local rules."""
     if not text:
         return []
 
@@ -76,9 +77,12 @@ def detect_secrets(text: str | None):
 
 
 def detect_secrets_with_library(text: str):
+    """Run detect-secrets on chat/runtime text and return character spans."""
     matches = []
     line_start = 0
 
+    # Entropy plugins are intentionally excluded from DETECT_SECRETS_PLUGINS:
+    # they are useful for repository scans but too noisy for natural chat text.
     with transient_settings({"plugins_used": DETECT_SECRETS_PLUGINS}):
         for line in text.splitlines(keepends=True):
             line_without_newline = line.rstrip("\r\n")
@@ -108,6 +112,7 @@ def detect_secrets_with_library(text: str):
 
 
 def normalize_secret_type(secret_type: str):
+    """Convert detect-secrets detector names into stable snake_case labels."""
     return re.sub(
         r"[^a-z0-9]+",
         "_",
@@ -116,6 +121,7 @@ def normalize_secret_type(secret_type: str):
 
 
 def get_secret_value_span(secret_type: str, match: re.Match):
+    """Return only the sensitive value span when a rule matches an assignment."""
     if secret_type == "generic_api_key_assignment" and match.lastindex and match.lastindex >= 2:
         return match.start(2), match.end(2)
 
@@ -123,6 +129,7 @@ def get_secret_value_span(secret_type: str, match: re.Match):
 
 
 def merge_overlapping_matches(matches: list[SecretMatch]):
+    # Merge overlapping detections so redaction does not corrupt the text.
     if not matches:
         return []
 
@@ -149,6 +156,7 @@ def merge_overlapping_matches(matches: list[SecretMatch]):
 
 
 def redact_secrets(text: str | None):
+    # Replace detected secret values with a safe placeholder.
     if not text:
         return text
 
