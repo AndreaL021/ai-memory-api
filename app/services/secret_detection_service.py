@@ -16,13 +16,8 @@ class SecretMatch:
 
 
 SECRET_PATTERNS = {
-    "openai_api_key": re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b"),
-    "github_token": re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b"),
     "generic_api_key_assignment": re.compile(
-        r"(?i)\b(api[_-]?key|token|secret|password)\s*[:=]\s*['\"]?([A-Za-z0-9_\-./=+]{12,})"
-    ),
-    "private_key": re.compile(
-        r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"
+        r"(?i)\b[A-Z0-9_]*(?:api[_-]?key|token|secret|password)[A-Z0-9_]*\s*[:=]\s*['\"]?([A-Za-z0-9_\-./=+]{12,})"
     ),
 }
 
@@ -122,8 +117,8 @@ def normalize_secret_type(secret_type: str):
 
 def get_secret_value_span(secret_type: str, match: re.Match):
     # Return only the sensitive value span when a rule matches an assignment.
-    if secret_type == "generic_api_key_assignment" and match.lastindex and match.lastindex >= 2:
-        return match.start(2), match.end(2)
+    if secret_type == "generic_api_key_assignment" and match.lastindex and match.lastindex >= 1:
+        return match.start(1), match.end(1)
 
     return match.start(), match.end()
 

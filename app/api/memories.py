@@ -5,9 +5,18 @@ from app.database.session import get_db
 from app.schemas.memory_schema import (
     ContextResponseSchema,
     MemoryCreateSchema,
+    MemoryObservabilityResponseSchema,
     MemoryResponseSchema,
+    MemoryUpdateSchema,
 )
-from app.services.memory_service import create_memory, get_memory, list_memories
+from app.services.memory_service import (
+    create_memory,
+    delete_memory,
+    get_memory,
+    get_memory_observability,
+    list_memories,
+    update_memory,
+)
 
 
 router = APIRouter(
@@ -64,6 +73,62 @@ def get_memory_by_id(memory_id: int, db: Session = Depends(get_db)):
     return memory
 
 
+@router.patch("/memories/{memory_id}", response_model=MemoryResponseSchema)
+def patch_memory(
+    memory_id: int,
+    payload: MemoryUpdateSchema,
+    db: Session = Depends(get_db),
+):
+    memory = get_memory(
+        db=db,
+        memory_id=memory_id,
+    )
+
+    if not memory:
+        raise HTTPException(
+            status_code=404,
+            detail="Memory not found",
+        )
+
+    updated_memory = update_memory(
+        db=db,
+        memory=memory,
+        payload=payload,
+    )
+
+    if not updated_memory:
+        raise HTTPException(
+            status_code=422,
+            detail="Memory update rejected because it contains raw secret material.",
+        )
+
+    return updated_memory
+
+
+@router.delete("/memories/{memory_id}", response_model=MemoryResponseSchema)
+def delete_memory_by_id(
+    memory_id: int,
+    reason: str | None = None,
+    db: Session = Depends(get_db),
+):
+    memory = get_memory(
+        db=db,
+        memory_id=memory_id,
+    )
+
+    if not memory:
+        raise HTTPException(
+            status_code=404,
+            detail="Memory not found",
+        )
+
+    return delete_memory(
+        db=db,
+        memory=memory,
+        reason=reason,
+    )
+
+
 @router.get("/context", response_model=ContextResponseSchema)
 def get_context(
     id_user: int,
@@ -79,3 +144,28 @@ def get_context(
             limit=limit,
         )
     }
+
+
+@router.get(
+    "/observability/memories/{memory_id}",
+    response_model=MemoryObservabilityResponseSchema,
+)
+def get_memory_observability_by_id(
+    memory_id: int,
+    db: Session = Depends(get_db),
+):
+    memory = get_memory(
+        db=db,
+        memory_id=memory_id,
+    )
+
+    if not memory:
+        raise HTTPException(
+            status_code=404,
+            detail="Memory not found",
+        )
+
+    return get_memory_observability(
+        db=db,
+        memory=memory,
+    )
