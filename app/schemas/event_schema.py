@@ -28,3 +28,26 @@ class EventResponseSchema(BaseModel):
     model_config = {
         "from_attributes": True,
     }
+
+
+class MemoryCandidateResponseSchema(BaseModel):
+    id: int
+    id_event: int
+    id_user: int
+    id_project: int | None
+    memory_type: str
+    content: str
+    confidence: int
+    reason: str
+    status: str
+    signals: dict[str, Any] | None
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True,
+    }
+
+
+class EventProcessingResponseSchema(BaseModel):
+    event: EventResponseSchema
+    candidates: list[MemoryCandidateResponseSchema]

@@ -2,6 +2,7 @@ from app.database.database import Base, engine
 from app.models import (
     EventModel,
     MemoryAuditLogModel,
+    MemoryCandidateModel,
     MemoryModel,
     MemoryObservationModel,
     MemoryUsageModel,

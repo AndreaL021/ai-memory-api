@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.models.event_model import EventModel
+from app.models.memory_candidate_model import MemoryCandidateModel
 from app.schemas.event_schema import EventCreateSchema
 from app.services.security_service import validate_normal_memory_content
 
@@ -30,3 +31,18 @@ def create_event(db: Session, payload: EventCreateSchema):
     db.commit()
     db.refresh(event)
     return event
+
+
+def get_event(db: Session, event_id: int):
+    # Return a captured event by id, or None when it does not exist.
+    return db.query(EventModel).filter(EventModel.id == event_id).first()
+
+
+def list_event_candidates(db: Session, event_id: int):
+    # Return memory candidates generated from a specific event.
+    return (
+        db.query(MemoryCandidateModel)
+        .filter(MemoryCandidateModel.id_event == event_id)
+        .order_by(MemoryCandidateModel.id)
+        .all()
+    )
