@@ -1,6 +1,9 @@
 import re
 from dataclasses import dataclass
 
+from detect_secrets.core.scan import scan_line
+from detect_secrets.settings import transient_settings
+
 
 REDACTION_TEXT = "[REDACTED_SECRET]"
 
@@ -23,12 +26,40 @@ SECRET_PATTERNS = {
     ),
 }
 
+DETECT_SECRETS_PLUGINS = [
+    {"name": "ArtifactoryDetector"},
+    {"name": "AWSKeyDetector"},
+    {"name": "AzureStorageKeyDetector"},
+    {"name": "BasicAuthDetector"},
+    {"name": "CloudantDetector"},
+    {"name": "DiscordBotTokenDetector"},
+    {"name": "GitHubTokenDetector"},
+    {"name": "GitLabTokenDetector"},
+    {"name": "IbmCloudIamDetector"},
+    {"name": "IbmCosHmacDetector"},
+    {"name": "JwtTokenDetector"},
+    {"name": "KeywordDetector"},
+    {"name": "MailchimpDetector"},
+    {"name": "NpmDetector"},
+    {"name": "OpenAIDetector"},
+    {"name": "PrivateKeyDetector"},
+    {"name": "PypiTokenDetector"},
+    {"name": "SendGridDetector"},
+    {"name": "SlackDetector"},
+    {"name": "SoftlayerDetector"},
+    {"name": "SquareOAuthDetector"},
+    {"name": "StripeDetector"},
+    {"name": "TelegramBotTokenDetector"},
+    {"name": "TwilioKeyDetector"},
+]
+
 
 def detect_secrets(text: str | None):
     if not text:
         return []
 
     matches = []
+    matches.extend(detect_secrets_with_library(text))
 
     for secret_type, pattern in SECRET_PATTERNS.items():
         for match in pattern.finditer(text):
@@ -42,6 +73,46 @@ def detect_secrets(text: str | None):
             )
 
     return merge_overlapping_matches(matches)
+
+
+def detect_secrets_with_library(text: str):
+    matches = []
+    line_start = 0
+
+    with transient_settings({"plugins_used": DETECT_SECRETS_PLUGINS}):
+        for line in text.splitlines(keepends=True):
+            line_without_newline = line.rstrip("\r\n")
+
+            for secret in scan_line(line_without_newline):
+                if not secret.secret_value:
+                    continue
+
+                value_start = line_without_newline.find(secret.secret_value)
+
+                if value_start == -1:
+                    continue
+
+                start = line_start + value_start
+                end = start + len(secret.secret_value)
+                matches.append(
+                    SecretMatch(
+                        secret_type=normalize_secret_type(secret.type),
+                        start=start,
+                        end=end,
+                    )
+                )
+
+            line_start += len(line)
+
+    return matches
+
+
+def normalize_secret_type(secret_type: str):
+    return re.sub(
+        r"[^a-z0-9]+",
+        "_",
+        secret_type.lower(),
+    ).strip("_")
 
 
 def get_secret_value_span(secret_type: str, match: re.Match):
