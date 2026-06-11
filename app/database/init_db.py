@@ -12,3 +12,8 @@ from app.models import (
 def init_database():
     # Create all database tables declared by the SQLAlchemy models.
     Base.metadata.create_all(bind=engine)
+
+
+def drop_database():
+    # Drop all database tables declared by the SQLAlchemy models.
+    Base.metadata.drop_all(bind=engine)
