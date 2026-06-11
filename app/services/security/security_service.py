@@ -1,8 +1,6 @@
-from app.domain.security_levels import (
-    SECURITY_LEVEL_DEFINITIONS,
-    classify_security_level,
-)
-from app.services.secret_detection_service import detect_secrets, redact_secrets
+from app.config.security import SECURITY_LEVEL_DEFINITIONS
+from app.domain.security_levels import classify_security_level
+from app.services.security.secret_detection_service import detect_secrets, redact_secrets
 
 
 def classify_memory_security(
@@ -10,7 +8,7 @@ def classify_memory_security(
     memory_type: str | None = None,
     contains_sensitive_data: bool = False,
 ):
-    # Choose the security level for memory content before it is stored.
+    # Choose the storage security level for memory content before persistence.
     secret_matches = detect_secrets(content)
 
     return classify_security_level(
@@ -21,7 +19,7 @@ def classify_memory_security(
 
 
 def validate_normal_memory_content(content: str, memory_type: str | None = None):
-    # Validate and redact content before it can be stored as normal memory.
+    # Return whether content can be stored normally and its redacted safe version.
     security_level = classify_memory_security(
         content=content,
         memory_type=memory_type,

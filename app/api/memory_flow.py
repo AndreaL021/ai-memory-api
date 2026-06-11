@@ -6,7 +6,7 @@ from app.schemas.memory_flow_schema import (
     ChatMemoryFlowRequestSchema,
     ChatMemoryFlowResponseSchema,
 )
-from app.services.memory_flow_service import run_chat_memory_flow
+from app.services.flow_service import run_chat_memory_flow
 
 
 router = APIRouter(
@@ -20,6 +20,7 @@ def post_chat_memory_flow(
     payload: ChatMemoryFlowRequestSchema,
     db: Session = Depends(get_db),
 ):
+    # Run event capture, candidate extraction, promotion, and context retrieval.
     return run_chat_memory_flow(
         db=db,
         payload=payload,

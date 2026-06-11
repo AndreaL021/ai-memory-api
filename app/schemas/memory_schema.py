@@ -7,8 +7,7 @@ from app.domain.memory_types import MemoryType
 
 class MemoryCreateSchema(BaseModel):
     id_user: int
-    id_project: int | None = None
-    id_source_event: int | None = None
+    id_event: int | None = None
     memory_type: MemoryType
     content: str = Field(min_length=1)
     confidence: int = Field(default=50, ge=0, le=100)
@@ -18,8 +17,7 @@ class MemoryCreateSchema(BaseModel):
 class MemoryResponseSchema(BaseModel):
     id: int
     id_user: int
-    id_project: int | None
-    id_source_event: int | None
+    id_event: int | None
     id_superseded_by: int | None
     memory_type: str
     content: str
@@ -52,7 +50,6 @@ class MemoryUpdateSchema(BaseModel):
 
 class MemoryUsageCreateSchema(BaseModel):
     id_user: int
-    id_project: int | None = None
     id_event: int | None = None
     consumer: str
     use_case: str
@@ -66,32 +63,23 @@ class ContextResponseSchema(BaseModel):
     memories: list[MemoryResponseSchema]
 
 
-class MemoryAuditLogResponseSchema(BaseModel):
+class MemoryLogResponseSchema(BaseModel):
     id: int
     id_memory: int | None
     id_user: int
+    id_event: int | None
     action: str
+    decision: str | None
+    trigger_source: str | None
+    trigger_summary: str | None
     old_value: dict | None
     new_value: dict | None
     reason: str | None
-    created_at: datetime
-
-    model_config = {
-        "from_attributes": True,
-    }
-
-
-class MemoryObservationResponseSchema(BaseModel):
-    id: int
-    id_memory: int | None
-    id_user: int
-    id_project: int | None
-    id_event: int | None
-    observation_type: str
-    reason: str
-    trigger_source: str | None
-    trigger_summary: str | None
-    decision: str | None
+    consumer: str | None
+    use_case: str | None
+    used_successfully: bool | None
+    usefulness_score: int | None
+    outcome_summary: str | None
     metrics: dict | None
     created_at: datetime
 
@@ -102,5 +90,4 @@ class MemoryObservationResponseSchema(BaseModel):
 
 class MemoryObservabilityResponseSchema(BaseModel):
     memory: MemoryResponseSchema
-    audit_logs: list[MemoryAuditLogResponseSchema]
-    observations: list[MemoryObservationResponseSchema]
+    logs: list[MemoryLogResponseSchema]

@@ -8,8 +8,8 @@ from app.schemas.event_schema import (
     EventResponseSchema,
     MemoryCandidateResponseSchema,
 )
-from app.services.event_service import create_event, get_event, list_event_candidates
-from app.services.memory_capture_service import process_event_for_memory_candidates
+from app.services.events.event_service import create_event, get_event, list_event_candidates
+from app.services.memory.memory_capture_service import process_event_for_memory_candidates
 
 
 router = APIRouter(
@@ -20,6 +20,7 @@ router = APIRouter(
 
 @router.post("", response_model=EventResponseSchema)
 def post_event(payload: EventCreateSchema, db: Session = Depends(get_db)):
+    # Create a raw event without running the full memory flow.
     return create_event(
         db=db,
         payload=payload,
@@ -28,6 +29,7 @@ def post_event(payload: EventCreateSchema, db: Session = Depends(get_db)):
 
 @router.post("/{event_id}/process", response_model=EventProcessingResponseSchema)
 def process_event(event_id: int, db: Session = Depends(get_db)):
+    # Process one existing event and generate memory candidates from it.
     event = get_event(
         db=db,
         event_id=event_id,
@@ -52,6 +54,7 @@ def process_event(event_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{event_id}/candidates", response_model=list[MemoryCandidateResponseSchema])
 def get_event_candidates(event_id: int, db: Session = Depends(get_db)):
+    # Return the candidates that were generated from one event.
     event = get_event(
         db=db,
         event_id=event_id,

@@ -10,7 +10,7 @@ from app.schemas.memory_schema import (
     MemoryUpdateSchema,
     MemoryUsageCreateSchema,
 )
-from app.services.memory_service import (
+from app.services.memory.memory_service import (
     create_memory,
     delete_memory,
     get_memory,
@@ -28,6 +28,7 @@ router = APIRouter(
 
 @router.post("/memories", response_model=MemoryResponseSchema)
 def post_memory(payload: MemoryCreateSchema, db: Session = Depends(get_db)):
+    # Create a memory directly, bypassing event capture and candidate extraction.
     memory = create_memory(
         db=db,
         payload=payload,
@@ -45,15 +46,14 @@ def post_memory(payload: MemoryCreateSchema, db: Session = Depends(get_db)):
 @router.get("/memories", response_model=list[MemoryResponseSchema])
 def get_memories(
     id_user: int,
-    id_project: int | None = None,
     memory_type: str | None = None,
     limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
+    # List active memories for a user, optionally filtered by memory type.
     return list_memories(
         db=db,
         id_user=id_user,
-        id_project=id_project,
         memory_type=memory_type,
         limit=limit,
     )
@@ -61,6 +61,7 @@ def get_memories(
 
 @router.get("/memories/{memory_id}", response_model=MemoryResponseSchema)
 def get_memory_by_id(memory_id: int, db: Session = Depends(get_db)):
+    # Return one memory by id.
     memory = get_memory(
         db=db,
         memory_id=memory_id,
@@ -81,6 +82,7 @@ def patch_memory(
     payload: MemoryUpdateSchema,
     db: Session = Depends(get_db),
 ):
+    # Update a memory and record the reason in audit/observability tables.
     memory = get_memory(
         db=db,
         memory_id=memory_id,
@@ -113,6 +115,7 @@ def delete_memory_by_id(
     reason: str | None = None,
     db: Session = Depends(get_db),
 ):
+    # Soft-delete a memory by marking its status as deleted.
     memory = get_memory(
         db=db,
         memory_id=memory_id,
@@ -137,6 +140,7 @@ def post_memory_usage(
     payload: MemoryUsageCreateSchema,
     db: Session = Depends(get_db),
 ):
+    # Record that a memory was used and update its usefulness counters.
     memory = get_memory(
         db=db,
         memory_id=memory_id,
@@ -159,15 +163,14 @@ def post_memory_usage(
 @router.get("/context", response_model=ContextResponseSchema)
 def get_context(
     id_user: int,
-    id_project: int | None = None,
     limit: int = Query(default=20, ge=1, le=50),
     db: Session = Depends(get_db),
 ):
+    # Return the active memories that should be considered as current context.
     return {
         "memories": list_memories(
             db=db,
             id_user=id_user,
-            id_project=id_project,
             limit=limit,
         )
     }
@@ -181,6 +184,7 @@ def get_memory_observability_by_id(
     memory_id: int,
     db: Session = Depends(get_db),
 ):
+    # Return memory logs explaining one memory's history.
     memory = get_memory(
         db=db,
         memory_id=memory_id,

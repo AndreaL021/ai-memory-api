@@ -10,7 +10,6 @@ class SecretReferenceModel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     id_user = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    id_project = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
     name = Column(String, nullable=False, index=True)
     secret_type = Column(String, nullable=False, index=True)
     provider = Column(String, nullable=True, index=True)

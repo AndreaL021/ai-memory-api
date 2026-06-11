@@ -3,20 +3,17 @@ from sqlalchemy.orm import Session
 from app.models.event_model import EventModel
 from app.models.memory_candidate_model import MemoryCandidateModel
 from app.schemas.event_schema import EventCreateSchema
-from app.services.security_service import validate_normal_memory_content
+from app.services.security.security_service import validate_normal_memory_content
 
 
 def create_event(db: Session, payload: EventCreateSchema):
-    # Store a raw captured event after applying secret redaction and classification.
+    # Store raw input as an event after redacting secrets and assigning security metadata.
     security_result = validate_normal_memory_content(
         content=payload.content,
     )
 
     event = EventModel(
         id_user=payload.id_user,
-        id_project=payload.id_project,
-        source_type=payload.source_type,
-        source_ref=payload.source_ref,
         content=security_result["content"],
         metadata_json={
             **(payload.metadata_json or {}),
@@ -34,12 +31,12 @@ def create_event(db: Session, payload: EventCreateSchema):
 
 
 def get_event(db: Session, event_id: int):
-    # Return a captured event by id, or None when it does not exist.
+    # Return one captured event by id, or None when it does not exist.
     return db.query(EventModel).filter(EventModel.id == event_id).first()
 
 
 def list_event_candidates(db: Session, event_id: int):
-    # Return memory candidates generated from a specific event.
+    # Return all memory candidates generated from a specific event.
     return (
         db.query(MemoryCandidateModel)
         .filter(MemoryCandidateModel.id_event == event_id)

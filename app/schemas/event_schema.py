@@ -8,9 +8,6 @@ from app.schemas.memory_schema import MemoryResponseSchema
 
 class EventCreateSchema(BaseModel):
     id_user: int
-    id_project: int | None = None
-    source_type: str
-    source_ref: str | None = None
     content: str = Field(min_length=1)
     metadata_json: dict[str, Any] | None = None
 
@@ -18,9 +15,6 @@ class EventCreateSchema(BaseModel):
 class EventResponseSchema(BaseModel):
     id: int
     id_user: int
-    id_project: int | None
-    source_type: str
-    source_ref: str | None
     content: str
     metadata_json: dict[str, Any] | None
     security_level: str
@@ -36,7 +30,6 @@ class MemoryCandidateResponseSchema(BaseModel):
     id: int
     id_event: int
     id_user: int
-    id_project: int | None
     id_memory: int | None
     memory_type: str
     content: str

@@ -4,8 +4,11 @@ from dataclasses import dataclass
 from detect_secrets.core.scan import scan_line
 from detect_secrets.settings import transient_settings
 
-
-REDACTION_TEXT = "[REDACTED_SECRET]"
+from app.config.secret_detection import (
+    DETECT_SECRETS_PLUGINS,
+    REDACTION_TEXT,
+    SECRET_PATTERNS,
+)
 
 
 @dataclass(frozen=True)
@@ -15,42 +18,8 @@ class SecretMatch:
     end: int
 
 
-SECRET_PATTERNS = {
-    "generic_api_key_assignment": re.compile(
-        r"(?i)\b[A-Z0-9_]*(?:api[_-]?key|token|secret|password)[A-Z0-9_]*\s*[:=]\s*['\"]?([A-Za-z0-9_\-./=+]{12,})"
-    ),
-}
-
-DETECT_SECRETS_PLUGINS = [
-    {"name": "ArtifactoryDetector"},
-    {"name": "AWSKeyDetector"},
-    {"name": "AzureStorageKeyDetector"},
-    {"name": "BasicAuthDetector"},
-    {"name": "CloudantDetector"},
-    {"name": "DiscordBotTokenDetector"},
-    {"name": "GitHubTokenDetector"},
-    {"name": "GitLabTokenDetector"},
-    {"name": "IbmCloudIamDetector"},
-    {"name": "IbmCosHmacDetector"},
-    {"name": "JwtTokenDetector"},
-    {"name": "KeywordDetector"},
-    {"name": "MailchimpDetector"},
-    {"name": "NpmDetector"},
-    {"name": "OpenAIDetector"},
-    {"name": "PrivateKeyDetector"},
-    {"name": "PypiTokenDetector"},
-    {"name": "SendGridDetector"},
-    {"name": "SlackDetector"},
-    {"name": "SoftlayerDetector"},
-    {"name": "SquareOAuthDetector"},
-    {"name": "StripeDetector"},
-    {"name": "TelegramBotTokenDetector"},
-    {"name": "TwilioKeyDetector"},
-]
-
-
 def detect_secrets(text: str | None):
-    # Find secret-like spans in text using detect-secrets plus local rules.
+    # Find secret-like text ranges using detect-secrets plus local assignment rules.
     if not text:
         return []
 
@@ -72,7 +41,7 @@ def detect_secrets(text: str | None):
 
 
 def detect_secrets_with_library(text: str):
-    # Run detect-secrets on chat/runtime text and return character spans.
+    # Run detect-secrets line by line and convert its results into text spans.
     matches = []
     line_start = 0
 
@@ -107,7 +76,9 @@ def detect_secrets_with_library(text: str):
 
 
 def normalize_secret_type(secret_type: str):
-    # Convert detect-secrets detector names into stable snake_case labels.
+    # Convert detector names into stable snake_case labels for storage and logs.
+    # [^a-z0-9]+ matches any run of non-alphanumeric characters.
+    # Replacing those runs with "_" turns names like "GitHub Token" into "github_token".
     return re.sub(
         r"[^a-z0-9]+",
         "_",
@@ -116,7 +87,7 @@ def normalize_secret_type(secret_type: str):
 
 
 def get_secret_value_span(secret_type: str, match: re.Match):
-    # Return only the sensitive value span when a rule matches an assignment.
+    # Return the exact part of a regex match that should be treated as secret.
     if secret_type == "generic_api_key_assignment" and match.lastindex and match.lastindex >= 1:
         return match.start(1), match.end(1)
 
@@ -124,7 +95,7 @@ def get_secret_value_span(secret_type: str, match: re.Match):
 
 
 def merge_overlapping_matches(matches: list[SecretMatch]):
-    # Merge overlapping detections so redaction does not corrupt the text.
+    # Merge overlapping secret detections so redaction replaces each range once.
     if not matches:
         return []
 
@@ -151,7 +122,7 @@ def merge_overlapping_matches(matches: list[SecretMatch]):
 
 
 def redact_secrets(text: str | None):
-    # Replace detected secret values with a safe placeholder.
+    # Replace detected secret values with the configured redaction placeholder.
     if not text:
         return text
 

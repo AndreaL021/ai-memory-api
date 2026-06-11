@@ -3,21 +3,19 @@ from datetime import datetime
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from app.models.memory_audit_log_model import MemoryAuditLogModel
+from app.models.memory_log_model import MemoryLogModel
 from app.models.memory_model import MemoryModel
-from app.models.memory_observation_model import MemoryObservationModel
-from app.models.memory_usage_model import MemoryUsageModel
 from app.schemas.memory_schema import (
     MemoryCreateSchema,
     MemoryUpdateSchema,
     MemoryUsageCreateSchema,
 )
-from app.services.audit_service import create_memory_audit_log, create_memory_observation
-from app.services.security_service import validate_normal_memory_content
+from app.services.memory.audit_service import create_memory_log
+from app.services.security.security_service import validate_normal_memory_content
 
 
 def create_memory(db: Session, payload: MemoryCreateSchema):
-    # Create a normal memory record, or reject it if it contains raw secret material.
+    # Create a memory record, or reject it when the text contains raw secrets.
     security_result = validate_normal_memory_content(
         content=payload.content,
         memory_type=payload.memory_type.value,
@@ -26,12 +24,11 @@ def create_memory(db: Session, payload: MemoryCreateSchema):
     if not security_result["can_store"]:
         # Rejected memory attempts are still observable, so failures can be
         # explained and measured later.
-        create_memory_observation(
+        create_memory_log(
             db=db,
             id_user=payload.id_user,
-            id_project=payload.id_project,
-            id_event=payload.id_source_event,
-            observation_type="memory_rejected",
+            id_event=payload.id_event,
+            action="memory_rejected",
             reason="Raw secret material cannot be stored as normal memory text.",
             decision="rejected",
             metrics={
@@ -43,8 +40,7 @@ def create_memory(db: Session, payload: MemoryCreateSchema):
 
     memory = MemoryModel(
         id_user=payload.id_user,
-        id_project=payload.id_project,
-        id_source_event=payload.id_source_event,
+        id_event=payload.id_event,
         memory_type=payload.memory_type.value,
         content=security_result["content"],
         confidence=payload.confidence,
@@ -55,9 +51,10 @@ def create_memory(db: Session, payload: MemoryCreateSchema):
 
     db.add(memory)
     db.flush()
-    create_memory_audit_log(
+    create_memory_log(
         db=db,
         id_user=payload.id_user,
+        id_event=payload.id_event,
         id_memory=memory.id,
         action="memory_created",
         new_value={
@@ -65,15 +62,6 @@ def create_memory(db: Session, payload: MemoryCreateSchema):
             "security_level": memory.security_level,
             "importance": payload.importance,
         },
-        reason="Memory created from explicit API request.",
-    )
-    create_memory_observation(
-        db=db,
-        id_user=payload.id_user,
-        id_project=payload.id_project,
-        id_event=payload.id_source_event,
-        id_memory=memory.id,
-        observation_type="memory_created",
         reason="The provided content was allowed as normal memory text.",
         decision="created",
         metrics={
@@ -90,18 +78,14 @@ def create_memory(db: Session, payload: MemoryCreateSchema):
 def list_memories(
     db: Session,
     id_user: int,
-    id_project: int | None = None,
     memory_type: str | None = None,
     limit: int = 50,
 ):
-    # Return active memories for a user, optionally scoped by project and type.
+    # Return active memories for a user, optionally filtered by memory type.
     query = db.query(MemoryModel).filter(
         MemoryModel.id_user == id_user,
         MemoryModel.status == "active",
     )
-
-    if id_project is not None:
-        query = query.filter(MemoryModel.id_project == id_project)
 
     if memory_type:
         query = query.filter(MemoryModel.memory_type == memory_type)
@@ -115,12 +99,12 @@ def list_memories(
 
 
 def get_memory(db: Session, memory_id: int):
-    # Return a single memory by id, or None when it does not exist.
+    # Return one memory by id, or None when it does not exist.
     return db.query(MemoryModel).filter(MemoryModel.id == memory_id).first()
 
 
 def update_memory(db: Session, memory: MemoryModel, payload: MemoryUpdateSchema):
-    # Update a memory while preserving audit and observability history.
+    # Update memory fields while preserving audit and observability history.
     old_value = {
         "memory_type": memory.memory_type,
         "content": memory.content,
@@ -139,13 +123,12 @@ def update_memory(db: Session, memory: MemoryModel, payload: MemoryUpdateSchema)
     )
 
     if not security_result["can_store"]:
-        create_memory_observation(
+        create_memory_log(
             db=db,
             id_user=memory.id_user,
-            id_project=memory.id_project,
-            id_event=memory.id_source_event,
+            id_event=memory.id_event,
             id_memory=memory.id,
-            observation_type="memory_update_rejected",
+            action="memory_update_rejected",
             reason="Raw secret material cannot be stored as normal memory text.",
             decision="rejected",
             metrics={
@@ -183,22 +166,14 @@ def update_memory(db: Session, memory: MemoryModel, payload: MemoryUpdateSchema)
         "id_superseded_by": memory.id_superseded_by,
     }
 
-    create_memory_audit_log(
+    create_memory_log(
         db=db,
         id_user=memory.id_user,
+        id_event=memory.id_event,
         id_memory=memory.id,
         action="memory_updated",
         old_value=old_value,
         new_value=new_value,
-        reason=payload.reason or "Memory updated from explicit API request.",
-    )
-    create_memory_observation(
-        db=db,
-        id_user=memory.id_user,
-        id_project=memory.id_project,
-        id_event=memory.id_source_event,
-        id_memory=memory.id,
-        observation_type="memory_updated",
         reason=payload.reason or "The memory was updated by explicit API request.",
         decision="updated",
         metrics={
@@ -211,16 +186,17 @@ def update_memory(db: Session, memory: MemoryModel, payload: MemoryUpdateSchema)
 
 
 def delete_memory(db: Session, memory: MemoryModel, reason: str | None = None):
-    # Mark a memory as deleted without removing its audit trail.
+    # Soft-delete a memory by marking it deleted instead of removing its rows.
     old_status = memory.status
     memory.status = "deleted"
     memory.updated_at = datetime.utcnow()
 
-    create_memory_audit_log(
+    create_memory_log(
         db=db,
         id_user=memory.id_user,
         id_memory=memory.id,
         action="memory_deleted",
+        id_event=memory.id_event,
         old_value={
             "status": old_status,
         },
@@ -228,15 +204,6 @@ def delete_memory(db: Session, memory: MemoryModel, reason: str | None = None):
             "status": memory.status,
         },
         reason=reason or "Memory deleted from explicit API request.",
-    )
-    create_memory_observation(
-        db=db,
-        id_user=memory.id_user,
-        id_project=memory.id_project,
-        id_event=memory.id_source_event,
-        id_memory=memory.id,
-        observation_type="memory_deleted",
-        reason=reason or "The memory was marked as deleted by explicit API request.",
         decision="deleted",
     )
     db.commit()
@@ -245,24 +212,17 @@ def delete_memory(db: Session, memory: MemoryModel, reason: str | None = None):
 
 
 def get_memory_observability(db: Session, memory: MemoryModel):
-    # Return audit and observation records explaining memory decisions.
-    audit_logs = (
-        db.query(MemoryAuditLogModel)
-        .filter(MemoryAuditLogModel.id_memory == memory.id)
-        .order_by(desc(MemoryAuditLogModel.created_at), desc(MemoryAuditLogModel.id))
-        .all()
-    )
-    observations = (
-        db.query(MemoryObservationModel)
-        .filter(MemoryObservationModel.id_memory == memory.id)
-        .order_by(desc(MemoryObservationModel.created_at), desc(MemoryObservationModel.id))
+    # Return chronological logs that explain what happened to a memory.
+    logs = (
+        db.query(MemoryLogModel)
+        .filter(MemoryLogModel.id_memory == memory.id)
+        .order_by(desc(MemoryLogModel.created_at), desc(MemoryLogModel.id))
         .all()
     )
 
     return {
         "memory": memory,
-        "audit_logs": audit_logs,
-        "observations": observations,
+        "logs": logs,
     }
 
 
@@ -271,21 +231,7 @@ def record_memory_usage(
     memory: MemoryModel,
     payload: MemoryUsageCreateSchema,
 ):
-    # Track when a memory was used and update lightweight usefulness counters.
-    usage = MemoryUsageModel(
-        id_memory=memory.id,
-        id_user=payload.id_user,
-        id_project=payload.id_project,
-        id_event=payload.id_event,
-        consumer=payload.consumer,
-        use_case=payload.use_case,
-        used_successfully=payload.used_successfully,
-        usefulness_score=payload.usefulness_score,
-        outcome_summary=payload.outcome_summary,
-        metrics=payload.metrics,
-    )
-    db.add(usage)
-
+    # Record memory usage and update counters that estimate usefulness over time.
     memory.use_count += 1
     memory.last_used_at = datetime.utcnow()
 
@@ -303,23 +249,25 @@ def record_memory_usage(
         memory.usefulness_score = max(0, memory.usefulness_score - 10)
 
     memory.updated_at = datetime.utcnow()
-    create_memory_observation(
+    usage_log = create_memory_log(
         db=db,
         id_user=memory.id_user,
-        id_project=memory.id_project,
         id_event=payload.id_event,
         id_memory=memory.id,
-        observation_type="memory_used",
+        action="memory_used",
         reason=payload.outcome_summary or "Memory usage recorded from API request.",
         decision="used",
+        consumer=payload.consumer,
+        use_case=payload.use_case,
+        used_successfully=payload.used_successfully,
+        usefulness_score=payload.usefulness_score,
+        outcome_summary=payload.outcome_summary,
         metrics={
-            "consumer": payload.consumer,
-            "use_case": payload.use_case,
-            "used_successfully": payload.used_successfully,
             "usefulness_score": memory.usefulness_score,
             "use_count": memory.use_count,
         },
     )
     db.commit()
     db.refresh(memory)
-    return usage
+    db.refresh(usage_log)
+    return usage_log
