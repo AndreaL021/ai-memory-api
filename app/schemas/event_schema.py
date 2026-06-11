@@ -3,6 +3,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.schemas.memory_schema import MemoryResponseSchema
+
 
 class EventCreateSchema(BaseModel):
     id_user: int
@@ -35,6 +37,7 @@ class MemoryCandidateResponseSchema(BaseModel):
     id_event: int
     id_user: int
     id_project: int | None
+    id_memory: int | None
     memory_type: str
     content: str
     confidence: int
@@ -51,3 +54,8 @@ class MemoryCandidateResponseSchema(BaseModel):
 class EventProcessingResponseSchema(BaseModel):
     event: EventResponseSchema
     candidates: list[MemoryCandidateResponseSchema]
+
+
+class MemoryCandidatePromotionResponseSchema(BaseModel):
+    candidate: MemoryCandidateResponseSchema
+    memory: MemoryResponseSchema

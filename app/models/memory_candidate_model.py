@@ -12,6 +12,7 @@ class MemoryCandidateModel(Base):
     id_event = Column(Integer, ForeignKey("events.id"), nullable=False, index=True)
     id_user = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     id_project = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
+    id_memory = Column(Integer, ForeignKey("memories.id"), nullable=True, index=True)
     memory_type = Column(String, nullable=False, index=True)
     content = Column(Text, nullable=False)
     confidence = Column(Integer, nullable=False, default=50)

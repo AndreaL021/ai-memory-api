@@ -6,7 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.models.event_model import EventModel
 from app.models.memory_candidate_model import MemoryCandidateModel
+from app.models.memory_model import MemoryModel
+from app.schemas.memory_schema import MemoryCreateSchema
 from app.services.audit_service import create_memory_observation
+from app.services.memory_service import create_memory
 
 
 AUTO_PROMOTE_CONFIDENCE = 85
@@ -176,6 +179,65 @@ def process_event_for_memory_candidates(db: Session, event: EventModel):
 
     db.refresh(event)
     return candidates
+
+
+def get_memory_candidate(db: Session, candidate_id: int):
+    # Return a memory candidate by id, or None when it does not exist.
+    return (
+        db.query(MemoryCandidateModel)
+        .filter(MemoryCandidateModel.id == candidate_id)
+        .first()
+    )
+
+
+def promote_memory_candidate(db: Session, candidate: MemoryCandidateModel):
+    # Turn an accepted/pending candidate into a stored memory record.
+    if candidate.id_memory:
+        return (
+            db.query(MemoryModel)
+            .filter(MemoryModel.id == candidate.id_memory)
+            .first()
+        )
+
+    memory = create_memory(
+        db=db,
+        payload=MemoryCreateSchema(
+            id_user=candidate.id_user,
+            id_project=candidate.id_project,
+            id_source_event=candidate.id_event,
+            memory_type=candidate.memory_type,
+            content=candidate.content,
+            confidence=candidate.confidence,
+            importance=candidate.confidence,
+        ),
+    )
+
+    if not memory:
+        candidate.status = "rejected"
+        db.commit()
+        return None
+
+    candidate.id_memory = memory.id
+    candidate.status = "promoted"
+    create_memory_observation(
+        db=db,
+        id_user=candidate.id_user,
+        id_project=candidate.id_project,
+        id_event=candidate.id_event,
+        id_memory=memory.id,
+        observation_type="memory_candidate_promoted",
+        reason="Memory candidate promoted to persistent memory.",
+        decision="promoted",
+        metrics={
+            "candidate_id": candidate.id,
+            "candidate_confidence": candidate.confidence,
+            "memory_type": candidate.memory_type,
+        },
+    )
+    db.commit()
+    db.refresh(candidate)
+    db.refresh(memory)
+    return memory
 
 
 def extract_memory_candidate_drafts(text: str):
