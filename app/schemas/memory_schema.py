@@ -20,11 +20,18 @@ class MemoryResponseSchema(BaseModel):
     id_user: int
     id_project: int | None
     id_source_event: int | None
+    id_superseded_by: int | None
     memory_type: str
     content: str
     confidence: int
+    importance: int
+    usefulness_score: int
+    use_count: int
+    success_count: int
+    failure_count: int
     status: str
     security_level: str
+    last_used_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -37,8 +44,22 @@ class MemoryUpdateSchema(BaseModel):
     memory_type: MemoryType | None = None
     content: str | None = Field(default=None, min_length=1)
     confidence: int | None = Field(default=None, ge=0, le=100)
+    importance: int | None = Field(default=None, ge=0, le=100)
     status: str | None = None
+    id_superseded_by: int | None = None
     reason: str | None = None
+
+
+class MemoryUsageCreateSchema(BaseModel):
+    id_user: int
+    id_project: int | None = None
+    id_event: int | None = None
+    consumer: str
+    use_case: str
+    used_successfully: bool | None = None
+    usefulness_score: int | None = Field(default=None, ge=0, le=100)
+    outcome_summary: str | None = None
+    metrics: dict | None = None
 
 
 class ContextResponseSchema(BaseModel):

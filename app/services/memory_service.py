@@ -6,7 +6,12 @@ from sqlalchemy.orm import Session
 from app.models.memory_audit_log_model import MemoryAuditLogModel
 from app.models.memory_model import MemoryModel
 from app.models.memory_observation_model import MemoryObservationModel
-from app.schemas.memory_schema import MemoryCreateSchema, MemoryUpdateSchema
+from app.models.memory_usage_model import MemoryUsageModel
+from app.schemas.memory_schema import (
+    MemoryCreateSchema,
+    MemoryUpdateSchema,
+    MemoryUsageCreateSchema,
+)
 from app.services.audit_service import create_memory_audit_log, create_memory_observation
 from app.services.security_service import validate_normal_memory_content
 
@@ -43,6 +48,7 @@ def create_memory(db: Session, payload: MemoryCreateSchema):
         memory_type=payload.memory_type.value,
         content=security_result["content"],
         confidence=payload.confidence,
+        importance=payload.importance,
         status="active",
         security_level=security_result["security_level"],
     )
@@ -119,8 +125,10 @@ def update_memory(db: Session, memory: MemoryModel, payload: MemoryUpdateSchema)
         "memory_type": memory.memory_type,
         "content": memory.content,
         "confidence": memory.confidence,
+        "importance": memory.importance,
         "status": memory.status,
         "security_level": memory.security_level,
+        "id_superseded_by": memory.id_superseded_by,
     }
 
     next_content = payload.content if payload.content is not None else memory.content
@@ -154,16 +162,25 @@ def update_memory(db: Session, memory: MemoryModel, payload: MemoryUpdateSchema)
     if payload.confidence is not None:
         memory.confidence = payload.confidence
 
+    if payload.importance is not None:
+        memory.importance = payload.importance
+
     if payload.status is not None:
         memory.status = payload.status
+
+    if payload.id_superseded_by is not None:
+        memory.id_superseded_by = payload.id_superseded_by
+        memory.status = "outdated"
 
     memory.updated_at = datetime.utcnow()
     new_value = {
         "memory_type": memory.memory_type,
         "content": memory.content,
         "confidence": memory.confidence,
+        "importance": memory.importance,
         "status": memory.status,
         "security_level": memory.security_level,
+        "id_superseded_by": memory.id_superseded_by,
     }
 
     create_memory_audit_log(
@@ -247,3 +264,62 @@ def get_memory_observability(db: Session, memory: MemoryModel):
         "audit_logs": audit_logs,
         "observations": observations,
     }
+
+
+def record_memory_usage(
+    db: Session,
+    memory: MemoryModel,
+    payload: MemoryUsageCreateSchema,
+):
+    # Track when a memory was used and update lightweight usefulness counters.
+    usage = MemoryUsageModel(
+        id_memory=memory.id,
+        id_user=payload.id_user,
+        id_project=payload.id_project,
+        id_event=payload.id_event,
+        consumer=payload.consumer,
+        use_case=payload.use_case,
+        used_successfully=payload.used_successfully,
+        usefulness_score=payload.usefulness_score,
+        outcome_summary=payload.outcome_summary,
+        metrics=payload.metrics,
+    )
+    db.add(usage)
+
+    memory.use_count += 1
+    memory.last_used_at = datetime.utcnow()
+
+    if payload.used_successfully is True:
+        memory.success_count += 1
+
+    if payload.used_successfully is False:
+        memory.failure_count += 1
+
+    if payload.usefulness_score is not None:
+        memory.usefulness_score = payload.usefulness_score
+    elif payload.used_successfully is True:
+        memory.usefulness_score = min(100, memory.usefulness_score + 5)
+    elif payload.used_successfully is False:
+        memory.usefulness_score = max(0, memory.usefulness_score - 10)
+
+    memory.updated_at = datetime.utcnow()
+    create_memory_observation(
+        db=db,
+        id_user=memory.id_user,
+        id_project=memory.id_project,
+        id_event=payload.id_event,
+        id_memory=memory.id,
+        observation_type="memory_used",
+        reason=payload.outcome_summary or "Memory usage recorded from API request.",
+        decision="used",
+        metrics={
+            "consumer": payload.consumer,
+            "use_case": payload.use_case,
+            "used_successfully": payload.used_successfully,
+            "usefulness_score": memory.usefulness_score,
+            "use_count": memory.use_count,
+        },
+    )
+    db.commit()
+    db.refresh(memory)
+    return usage

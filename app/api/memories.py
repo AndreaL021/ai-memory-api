@@ -8,6 +8,7 @@ from app.schemas.memory_schema import (
     MemoryObservabilityResponseSchema,
     MemoryResponseSchema,
     MemoryUpdateSchema,
+    MemoryUsageCreateSchema,
 )
 from app.services.memory_service import (
     create_memory,
@@ -15,6 +16,7 @@ from app.services.memory_service import (
     get_memory,
     get_memory_observability,
     list_memories,
+    record_memory_usage,
     update_memory,
 )
 
@@ -127,6 +129,31 @@ def delete_memory_by_id(
         memory=memory,
         reason=reason,
     )
+
+
+@router.post("/memories/{memory_id}/usage", response_model=MemoryResponseSchema)
+def post_memory_usage(
+    memory_id: int,
+    payload: MemoryUsageCreateSchema,
+    db: Session = Depends(get_db),
+):
+    memory = get_memory(
+        db=db,
+        memory_id=memory_id,
+    )
+
+    if not memory:
+        raise HTTPException(
+            status_code=404,
+            detail="Memory not found",
+        )
+
+    record_memory_usage(
+        db=db,
+        memory=memory,
+        payload=payload,
+    )
+    return memory
 
 
 @router.get("/context", response_model=ContextResponseSchema)
