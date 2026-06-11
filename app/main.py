@@ -15,7 +15,7 @@ app = FastAPI(
 @app.on_event("startup")
 def startup():
     # Initialize database tables when the FastAPI application starts.
-    drop_database()
+    # drop_database()
     init_database()
 
 
