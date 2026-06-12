@@ -3,14 +3,18 @@ import unittest
 from app.config.memory_capture import AUTO_PROMOTE_CONFIDENCE
 from app.services.memory.memory_capture_service import extract_memory_candidate_drafts
 from app.services.security.security_service import validate_normal_memory_content
-from tests.quality_cases import CANDIDATE_CASES, SECRET_CASES
+from tests.quality_case_loader import load_quality_cases
+
+
+QUALITY_CASES = load_quality_cases()
 
 
 class MemoryQualityTests(unittest.TestCase):
     def test_candidate_cases(self):
-        for case in CANDIDATE_CASES:
+        for case in QUALITY_CASES["candidate_cases"]:
             with self.subTest(case=case["name"]):
-                drafts = extract_memory_candidate_drafts(case["input"])
+                security_result = validate_normal_memory_content(case["input"])
+                drafts = extract_memory_candidate_drafts(security_result["content"])
                 actual_types = [draft.memory_type for draft in drafts]
 
                 self.assertEqual(case["expected_count"], len(drafts))
@@ -23,7 +27,7 @@ class MemoryQualityTests(unittest.TestCase):
                     )
 
     def test_secret_cases(self):
-        for case in SECRET_CASES:
+        for case in QUALITY_CASES["secret_cases"]:
             with self.subTest(case=case["name"]):
                 result = validate_normal_memory_content(case["input"])
 

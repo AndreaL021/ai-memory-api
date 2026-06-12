@@ -176,11 +176,12 @@ def extract_memory_candidate_drafts(text: str):
 def split_candidate_sentences(text: str):
     # Break chat text into candidate-sized pieces while keeping short notes usable.
     return [
-        item.strip(" -\t")
-        # [\n.!?]+ splits on newlines and common sentence punctuation.
-        # The + groups repeated separators so "hello!!!" does not create empty items.
-        for item in re.split(r"[\n.!?]+", text)
-        if item.strip(" -\t")
+        item.strip(" -\t.")
+        # [\n!?]+ splits on newlines, question marks, and exclamation marks.
+        # (?<=\.)\s+ splits after a period only when it is followed by whitespace,
+        # so filenames like quality_cases.json are not split into separate candidates.
+        for item in re.split(r"[\n!?]+|(?<=\.)\s+", text)
+        if item.strip(" -\t.")
     ]
 
 

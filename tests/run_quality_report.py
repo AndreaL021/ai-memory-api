@@ -6,7 +6,10 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from app.config.memory_capture import AUTO_PROMOTE_CONFIDENCE
 from app.services.memory.memory_capture_service import extract_memory_candidate_drafts
 from app.services.security.security_service import validate_normal_memory_content
-from tests.quality_cases import CANDIDATE_CASES, SECRET_CASES
+from tests.quality_case_loader import QUALITY_CASES_PATH, load_quality_cases
+
+
+QUALITY_CASES = load_quality_cases()
 
 
 def print_section(title: str):
@@ -21,7 +24,8 @@ def print_result(passed: bool):
 
 
 def run_candidate_case(case: dict):
-    drafts = extract_memory_candidate_drafts(case["input"])
+    security_result = validate_normal_memory_content(case["input"])
+    drafts = extract_memory_candidate_drafts(security_result["content"])
     actual_types = [draft.memory_type for draft in drafts]
     passed = len(drafts) == case["expected_count"]
 
@@ -36,6 +40,8 @@ def run_candidate_case(case: dict):
 
     print_section(case["name"])
     print(f"INPUT: {case['input']}")
+    if security_result["secret_count"]:
+        print(f"SAFE INPUT: {security_result['content']}")
     print(
         "EXPECTED: "
         f"candidates={case['expected_count']}, "
@@ -61,8 +67,7 @@ def run_candidate_case(case: dict):
     return passed
 
 
-def run_secret_case():
-    case = SECRET_CASES[0]
+def run_secret_case(case: dict):
     result = validate_normal_memory_content(case["input"])
     passed = (
         result["can_store"] == case["expected_can_store"]
@@ -86,11 +91,15 @@ def run_secret_case():
 
 
 def main():
+    print(f"QUALITY CASES: {QUALITY_CASES_PATH}")
     results = [
         run_candidate_case(case)
-        for case in CANDIDATE_CASES
+        for case in QUALITY_CASES["candidate_cases"]
     ]
-    results.extend(run_secret_case() for _case in SECRET_CASES)
+    results.extend(
+        run_secret_case(case)
+        for case in QUALITY_CASES["secret_cases"]
+    )
 
     passed = sum(1 for result in results if result)
     failed = len(results) - passed

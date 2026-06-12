@@ -2,7 +2,7 @@ AUTO_PROMOTE_CONFIDENCE = 85
 FUZZY_MATCH_THRESHOLD = 86
 CANDIDATE_MIN_SCORE = 55
 CANDIDATE_MAX_CONFIDENCE = 95
-PHRASE_MATCH_SCORE = 35
+PHRASE_MATCH_SCORE = 43
 KEYWORD_MATCH_SCORE = 12
 
 MEMORY_TYPE_SIGNALS = {
@@ -92,6 +92,7 @@ MEMORY_TYPE_SIGNALS = {
             "i'm using",
             "im using",
             "tool is",
+            "service is",
             "runs on",
             "api is",
         ],
@@ -102,6 +103,7 @@ MEMORY_TYPE_SIGNALS = {
             "api",
             "service",
             "port",
+            "use",
             "using",
         ],
     },
