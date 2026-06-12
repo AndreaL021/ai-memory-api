@@ -58,6 +58,7 @@ MEMORY_TYPE_SIGNALS = {
         ],
         "keywords": [
             "next",
+            "step",
             "todo",
             "plan",
             "later",
